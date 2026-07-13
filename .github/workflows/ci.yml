@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout nexus-core sibling
+        uses: actions/checkout@v4
+        with:
+          repository: royramosparaiso/nexus-core
+          path: nexus-core
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ./nexus-core/python
+      - run: pip install -e ".[dev]" aiosqlite
+      - run: ruff check app tests
+      - run: pytest -q

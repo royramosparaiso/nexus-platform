@@ -1,39 +1,67 @@
-# Nexus Platform
+# nexus-platform
 
-**The data plane of Nexus OS.** One instance per tenant — runs agents, LLM router, spaces, memory, and audit log for a single Persona.
+Data plane for Nexus OS. One Platform instance per tenant. Provisioned by
+the Console via a signed bootstrap handshake, then driven by signed commands.
 
-> **Status:** ⚠️ Bootstrap phase. Repo initialized with architecture decision records (ADRs). Code coming after ADRs are approved.
+Protocol version: **v0.6** (contracts live in [`nexus-core`](https://github.com/royramosparaiso/nexus-core)).
 
-## What lives here
+## What's in v0.6
 
-- **Agent runtime** — decides how agents execute (see [ADR-001](docs/adr/001-agent-runtime.md)).
-- **User authentication** — how humans log in to this instance (see [ADR-002](docs/adr/002-user-authentication.md)).
-- **LLM router** — dispatches calls by role to providers (see [ADR-003](docs/adr/003-llm-router.md)).
-- **Bootstrap endpoint** — accepts a signed `InstanceManifest` from Console, applies it.
-- **Command endpoint** — executes signed commands from Console.
-- **Personal Space + N project/group/company Spaces** — collaborative containers.
-- **Areas** — installable modules (personal_organization, meetings, sales, etc.).
+- FastAPI service exposing `/_health`, `/_bootstrap`, `/_commands`, `/_status`
+- Postgres schema + Alembic migrations (5 tables: instance, space, area,
+  user_account, audit_log)
+- Bootstrap handshake with Ed25519 keypair generation
+- Command verification via signed JWT (Console pubkey pinned at bootstrap)
+- Personal Space created automatically on bootstrap with the areas from the
+  Console manifest
+- Runtime `in_process` (Redis workers reserved for v0.7 — see
+  [ADR-001](docs/adr/001-agent-runtime.md))
+- Auth providers: `password_totp | magic_link | oauth_google |
+  oauth_microsoft | oauth_github | console_idp | clerk` (see
+  [ADR-002](docs/adr/002-user-authentication.md))
+- LLM adapters shipped: Anthropic, OpenAI, Ollama, OpenRouter (see
+  [ADR-003](docs/adr/003-llm-router.md))
 
-## What does NOT live here
+## What's NOT in v0.6 yet
 
-- Wizards, deployers, credentials vault — that's [nexus-console](https://github.com/royramosparaiso/nexus-console).
-- Shared types + JWT contracts — that's [nexus-core](https://github.com/royramosparaiso/nexus-core).
+- Full command dispatch (v0.6 accepts + queues; handlers land next PR)
+- Live agent runtime (agents defined, scheduler stubbed)
+- Notification webhooks back to Console (contract done, publisher TODO)
+- Redis workers runtime backend (v0.7)
 
-## Contracts
+## Local development
 
-Platform depends on `nexus-core` for all wire types and JWT signing/verification. Version alignment: `nexus-core@0.6.x` = protocol v0.6.
+```bash
+# 1. Start Postgres
+docker run --rm -d --name nexus-pg -p 5432:5432 \
+  -e POSTGRES_USER=nexus -e POSTGRES_PASSWORD=nexus -e POSTGRES_DB=nexus postgres:16
 
-## Design principles
+# 2. Install
+python -m venv .venv && source .venv/bin/activate
+pip install -e ../nexus-core/python
+pip install -e ".[dev]"
 
-1. **Zero-friction install.** `docker run` or `pip install` starts a working Platform. Everything else optional.
-2. **Sovereign runtime.** No external dependency for critical paths (LLM router, auth for personal instances, secrets).
-3. **Auditable.** Every LLM call, every action, every secret access is logged with signed provenance.
-4. **Killable.** Global kill switch, per-agent kill switch, per-area budget ceiling.
+# 3. Migrate + run
+export PLATFORM_DATABASE_URL="postgresql+psycopg://nexus:nexus@localhost:5432/nexus"
+export PLATFORM_BOOTSTRAP_TOKEN="dev-token"
+alembic upgrade head
+uvicorn app.main:app --reload
+```
 
-## Development status
+## Tests
 
-Nothing to run yet. ADRs are being reviewed. When approved, Platform code starts here.
+```bash
+pytest -q
+```
+
+Tests use SQLite in-memory — no Postgres required.
+
+## Docker image
+
+```bash
+docker build -t nexus-platform:0.6.0 .
+```
 
 ## License
 
-MIT — impulsado por Ironbat Digital LLC.
+MIT — Ironbat Digital LLC
