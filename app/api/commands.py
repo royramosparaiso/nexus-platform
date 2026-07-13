@@ -6,7 +6,6 @@ the command to the appropriate handler. Returns a CommandResult.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
