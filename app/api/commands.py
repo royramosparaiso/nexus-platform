@@ -19,6 +19,7 @@ from nexus_core.jwt import ExpiredToken, InvalidSignature, verify_token
 
 from app.db import get_db
 from app.models import InstanceRow
+from app.services.command_handlers import dispatch
 
 router = APIRouter()
 
@@ -53,15 +54,11 @@ async def commands(request: Request, db: AsyncSession = Depends(get_db)) -> Comm
         )
 
     envelope = CommandEnvelope.model_validate(payload)
-    # In v0.6 we ACK the command but do not yet dispatch handlers — that's
-    # the next PR. Handlers land as they're implemented (create_space,
-    # install_area, etc.).
-    return CommandResult(
-        cmd_id=envelope.cmd_id,
-        status=CommandStatus.QUEUED,
-        detail=f"command {envelope.command.kind.value} accepted",
-        applied_at=int(datetime.now(timezone.utc).timestamp()),
-    )
+
+    # v0.7 — dispatcher applies the command synchronously against Platform DB.
+    # Long-running handlers (e.g. agent runtime, image pulls) return APPLIED
+    # after recording an intent; the actual execution happens out-of-band.
+    return await dispatch(db, envelope, instance)
 
 
 def _extract_cmd_id(token: str, fallback):

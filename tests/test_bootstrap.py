@@ -112,12 +112,15 @@ async def test_command_verifies_signature(client):
         instance_id=instance_id,
         issued_at=now,
         expires_at=now + 300,
-        command=Command(kind=CommandKind.CREATE_SPACE, payload={"name": "acme"}),
+        command=Command(
+            kind=CommandKind.CREATE_SPACE,
+            payload={"slug": "acme", "name": "Acme Corp"},
+        ),
     )
     token = sign_command(console_kp, env)
     r = await client.post("/_commands", content=token, headers={"Content-Type": "application/jwt"})
     assert r.status_code == 200
-    assert r.json()["status"] == "queued"
+    assert r.json()["status"] == "applied"
 
     # bad signature (different key)
     other = ConsoleKeypair.generate()
