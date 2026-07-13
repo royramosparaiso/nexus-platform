@@ -1,6 +1,6 @@
 # ADR-003: LLM Router
 
-**Status:** Draft — pending decision.
+**Status:** Approved 2026-07-13 with amendment: OpenRouter included in v0.6.
 **Context:** Nexus supports 8 LLM providers today (Anthropic, OpenAI, OpenRouter, Perplexity, Groq, Together, Mistral, Ollama) and routes calls by role (planner/coordinator/worker/embeddings). Do we build our own router or depend on LiteLLM?
 
 ## Options analyzed
@@ -100,11 +100,9 @@ Use LiteLLM under the hood, wrap with our own layer that adds role routing, budg
 4. **No hidden behavior.** Explicit is better than magic.
 5. **Migration cost is real.** LiteLLM as a starting point creates lock-in: months of code assumes LiteLLM behavior; extracting later is expensive.
 
-## Implementation plan (v0.6)
+## Implementation plan (v0.6, amended)
 
-Priority 1 (must ship): **Anthropic, OpenAI, Ollama.** These cover 80% of the use cases we've seen and OpenAI-compatible endpoints work for many others as a fallback.
-
-Priority 2 (post-v0.6): **OpenRouter, Groq, Together, Mistral, Perplexity.** OpenRouter alone covers most gaps because it re-exposes 200+ models with a unified interface, so we get many "for free" via one adapter.
+Ship **4 adapters in v0.6**: Anthropic, OpenAI, Ollama, OpenRouter. OpenRouter alone re-exposes 200+ models under a unified OpenAI-compatible interface, so users can reach almost any model in the ecosystem without waiting for us to add a native adapter.
 
 Structure:
 
@@ -115,18 +113,17 @@ platform/app/llm/
 ├── audit.py            # Every call logged to nexus_audit_log table
 ├── adapters/
 │   ├── base.py         # LlmAdapter ABC: complete, stream, embed
-│   ├── anthropic.py
-│   ├── openai.py
-│   ├── ollama.py
-│   └── openrouter.py   # (post-v0.6) — unlocks many others via one adapter
+│   ├── anthropic.py    # native SDK
+│   ├── openai.py       # native SDK
+│   ├── ollama.py       # local, httpx
+│   └── openrouter.py   # httpx (OpenAI-compatible protocol)
 └── errors.py
 ```
 
-Each adapter is a thin `httpx` wrapper. No LLM library dependencies. `openai` and `anthropic` SDKs are optional and only used when the user opts into them (they're small and stable).
+Each adapter is < 200 LOC. OpenRouter reuses the OpenAI adapter's message-formatting code because both speak the same protocol.
 
 ## Migration path
 
-- v0.6: 3 adapters (Anthropic, OpenAI, Ollama).
-- v0.7: OpenRouter (unlocks 200+ models via one adapter).
-- v0.8: Groq, Together, Mistral, Perplexity.
-- If ever we want to add all 100+ providers of LiteLLM, we can vendor their adapter code file by file with clear provenance and no framework dependency.
+- v0.6: 4 adapters (Anthropic, OpenAI, Ollama, OpenRouter).
+- v0.7: Groq, Together, Mistral, Perplexity as native adapters (they all offer OpenAI-compatible modes, so the code is thin).
+- Long term: if we want to add exotic providers not covered by OpenRouter, vendor their protocol into a new adapter file. No framework dependency ever needed.

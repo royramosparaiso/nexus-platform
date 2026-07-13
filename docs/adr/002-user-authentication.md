@@ -1,6 +1,6 @@
 # ADR-002: End-user Authentication
 
-**Status:** Draft — pending decision.
+**Status:** Approved 2026-07-13 with amendment: Clerk included in v0.6.
 **Context:** How do humans (owner, operators, guests) sign in to a Platform's UI? The wizard should let each user pick their preferred auth mode per instance.
 
 ## Options analyzed
@@ -111,19 +111,22 @@ Classic self-hosted app auth.
 
 **Offer multiple options in the wizard, backed by a common `auth/` module in Platform.** Each Persona gets a suitable default:
 
-- **Personal** — default: **E (local password + TOTP)**. Offline-friendly, no SMTP required. Advanced users can switch to A or B.
+- **Personal** — default: **E (local password + TOTP)**. Offline-friendly, no SMTP required. Advanced users can switch to A, B, or D.
 - **Family** — default: **A (magic link)**. Simple for non-technical family members.
-- **Company** — default: **B (OAuth, prefer Google Workspace / M365)**. Alternative: A or C.
-- **Community** — default: **A (magic link)** or **B**.
+- **Company** — default: **B (OAuth, prefer Google Workspace / M365)**. Alternatives: A, C, or D (Clerk for teams that want passkeys out of the box).
+- **Community** — default: **A (magic link)** or **B**. D (Clerk) for public communities with heavy signup UX needs.
 - **Client Space** — default: **C (Console-IdP)** to enable cross-instance sharing.
-- **Custom** — user picks any.
+- **Custom** — user picks any of A/B/C/D/E.
 
-**Not v0.6:** Clerk/WorkOS. We can add them post-1.0 as a paid convenience, but they conflict with the sovereign-instance narrative for now.
+**Included in v0.6:** Clerk (per amendment). Available as an opt-in provider in the wizard for users who prioritize UX polish (passkeys, social, MFA out of the box) over pure sovereignty. Wizard makes the trade-off explicit: enabling Clerk means auth data lives on Clerk servers; disabling Clerk keeps everything in-instance.
+
+**Not v0.6:** WorkOS, Auth0, Supabase Auth. Reachable via the same auth-provider abstraction if demand appears — the interface below accepts any external IdP.
 
 ## Wizard impact
 
 - Step 6 (Governance) grows a sub-section "Auth" with:
-  - Provider: `password_totp | magic_link | oauth_google | oauth_microsoft | oauth_github | console_idp`
+  - Provider: `password_totp | magic_link | oauth_google | oauth_microsoft | oauth_github | console_idp | clerk`
   - SMTP config (host, port, user, pass) if `magic_link`
   - OAuth client ID/secret if `oauth_*`
-- Credentials go through `pplx-tool request_credential` (secure form), never plaintext in the manifest.
+  - Clerk publishable key + secret key if `clerk`
+- Credentials go through the credentials secure form, never plaintext in the manifest.

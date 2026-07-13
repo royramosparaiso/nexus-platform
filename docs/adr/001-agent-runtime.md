@@ -1,6 +1,6 @@
 # ADR-001: Agent Runtime
 
-**Status:** Draft — pending decision.
+**Status:** Approved 2026-07-13 with amendment: user-selectable per instance.
 **Context:** How do agents execute inside a Nexus Platform instance? This choice affects installation friction, resource limits, blast radius of a runaway agent, and how we implement kill-switch.
 
 ## Options analyzed
@@ -110,17 +110,43 @@ Each agent runs in its own container spawned via Docker socket.
 
 ---
 
-## Recommendation
+## Recommendation (amended)
 
-**Start with Option A (in-process async).** Reasoning:
+**Support both A and B as a per-instance choice in the wizard.** Deployment step 2 gains a `runtime` field:
 
-1. Zero-friction installation is a hard requirement — Option A is the only one that keeps `docker run` to a single container beyond the DB.
-2. The 90th-percentile Nexus user has < 10 agents. Option A handles this comfortably.
-3. Migrating A → B is straightforward when needed: the agent state machine has the same interface either way; we swap the scheduler.
-4. Option C is a non-starter for the current target (personal/company instances). It might return as an opt-in later for sandboxing untrusted code in the Client Space scenario.
+- `in_process` (default) — Option A. Zero infra beyond Postgres.
+- `redis_workers` — Option B. Adds a Redis service to the compose/deploy manifest.
 
-## Migration path
+Option C (Docker sandboxes) remains excluded for v0.6 — comes back post-v1.0 for Client Space scenarios with untrusted agents.
 
-- v0.6 → v0.9: in-process. Add executor pool for CPU tasks (embeddings, PDF).
-- v0.10+: introduce Redis as *optional*. Same agent code, different scheduler. Compose users get Redis included automatically; local users can opt out and stay in-process.
-- Post-v1.0: Option C returns as an opt-in for Client Space (untrusted agents from third parties).
+### Defaults per Persona kind
+
+| Persona kind | Default runtime | Rationale                                              |
+|--------------|------------------|--------------------------------------------------------|
+| personal     | in_process       | 1-5 agents, personal machine, offline-friendly         |
+| family       | in_process       | Same as personal                                       |
+| company      | in_process       | Start simple; upgrade via wizard when concurrency grows|
+| community    | in_process       | Same                                                   |
+| client       | redis_workers    | Multi-tenant, isolation matters                        |
+| custom       | (user choice)    | No default                                             |
+
+### Installation friction cost of adding Redis
+
+- **Docker Compose local:** +1 service (6 lines in compose). Zero user-visible friction — the installer's compose file already includes it when the wizard selects `redis_workers`.
+- **Fly.io:** +1 `flyctl apps create` command run by the deployer automatically. 2 minutes extra.
+- **Native (no Docker) dev:** user must install Redis (brew/apt). This is the one setup where friction is real. Documented in the wizard warning.
+- **Backup:** +1 dump target (Redis RDB snapshot).
+- **RAM:** +30-50 MB idle.
+
+Net: with Docker Compose or Fly (the modalities most users pick), the friction is essentially absorbed by the deployer. Bare-metal is the only case with real added complexity.
+
+### v0.6 implementation scope
+
+- Wizard schema accepts the `runtime` field.
+- Only `in_process` is functional in v0.6.
+- `redis_workers` returns a wizard warning: "Redis runtime available in v0.7 — using in-process for now."
+- The scheduler interface is defined once; v0.7 swaps the backend without touching agent code.
+
+### Migration path A → B (v0.7+)
+
+Same agent state machine interface. Change happens in wizard step 2 → Console emits `set_runtime` command → Platform boots workers → drains in-process scheduler → cuts over. No agent code touched, no data migration.
