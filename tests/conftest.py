@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 os.environ.setdefault("PLATFORM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("PLATFORM_BOOTSTRAP_TOKEN", "test-token")
 
-from app import db as db_module  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import Base  # noqa: E402
 

@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from uuid import uuid4
 
-import pytest
 
 from nexus_core.contracts.bootstrap import BootstrapRequest
 from nexus_core.contracts.commands import Command, CommandEnvelope, CommandKind
