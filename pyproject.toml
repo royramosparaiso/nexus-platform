@@ -1,13 +1,13 @@
 [project]
 name = "nexus-platform"
-version = "0.6.0"
+version = "0.7.0"
 description = "Nexus OS Platform — data plane, one instance per tenant."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "Ironbat Digital LLC", email = "hello@ironbat.digital" }]
 dependencies = [
-  "nexus-core==0.6.0",
+  "nexus-core==0.7.0",
   "fastapi>=0.115",
   "uvicorn[standard]>=0.32",
   "pydantic>=2.9",

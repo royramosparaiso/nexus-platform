@@ -54,7 +54,7 @@ async def bootstrap(
         return BootstrapResponse(
             status=BootstrapStatus.ALREADY_BOOTSTRAPPED,
             platform_public_key_pem=existing.platform_public_key_pem,
-            platform_version="0.6.0",
+            platform_version="0.7.0",
             applied_areas=[a.slug for space in await _all_spaces(db) for a in space.areas],
         )
 
@@ -112,7 +112,7 @@ async def bootstrap(
     return BootstrapResponse(
         status=BootstrapStatus.OK,
         platform_public_key_pem=kp.public_pem(),
-        platform_version="0.6.0",
+        platform_version="0.7.0",
         applied_areas=applied,
     )
 
