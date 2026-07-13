@@ -45,3 +45,8 @@ allow-direct-references = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+src = ["app", "tests"]
+extend-exclude = ["nexus-core", "vendor"]
