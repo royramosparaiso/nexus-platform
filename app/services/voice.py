@@ -106,5 +106,41 @@ class KokoroUnavailable(RuntimeError):
     """Backend not configured or unreachable — caller decides how to degrade."""
 
 
+async def list_backend_voices(
+    *,
+    base_url: str | None = None,
+    timeout: float = 10.0,
+) -> list[str]:
+    """Fetch the list of voices from the Kokoro-FastAPI backend.
+
+    Returns a plain list of voice ids (e.g. ``["af_bella", "am_adam", ...]``).
+    Raises ``KokoroUnavailable`` when no backend URL is configured, and
+    ``httpx.HTTPError`` subclasses on transport / status errors.
+
+    Kokoro-FastAPI responds with either ``{"voices": ["..."]}`` (canonical)
+    or ``{"voices": [{"id": "..."}]}`` in newer builds — we normalise both
+    into a flat list of ids so the caller never has to care.
+    """
+    url = base_url or kokoro_base_url()
+    if not url:
+        raise KokoroUnavailable("KOKORO_URL not configured")
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.get(f"{url.rstrip('/')}/v1/audio/voices")
+        resp.raise_for_status()
+        data = resp.json()
+
+    raw = data.get("voices", []) if isinstance(data, dict) else []
+    ids: list[str] = []
+    for entry in raw:
+        if isinstance(entry, str):
+            ids.append(entry)
+        elif isinstance(entry, dict):
+            vid = entry.get("id") or entry.get("name")
+            if isinstance(vid, str) and vid:
+                ids.append(vid)
+    return ids
+
+
 def control_frame(event: str, **extra) -> str:
     return json.dumps({"event": event, **extra})
